@@ -142,31 +142,74 @@
                [i (assoc m :id i)])
              x)))
 
+
+(defn start-wiring [n-channels n-sides]
+  (for [_ (range n-channels)]
+    (for [s (range n-sides)]
+      [9 s])))
+
+(defn end-wiring [n-channels n-sides]
+  (for [_ (range n-channels)]
+    (for [s (range n-sides)]
+      [s 9])))
+
+(defn add-wires [shapes wiring n-channels]
+  (for [[id shape] shapes]
+    (let [shape-wiring-input (wiring id)
+          shape-wiring (cond
+                         (= shape-wiring-input :start) (start-wiring n-channels (:n shape))
+                         (= shape-wiring-input :end) (end-wiring n-channels (:n shape))
+                         :else shape-wiring-input)]
+      [id (assoc shape :wiring shape-wiring)])))
+
+(defn position-wires [shapes]
+  (for [[id {:keys [n location] :as shape}] shapes]
+    (let [[x y r] location
+          radius (c/inner-radii n)
+          edge-centres (map #(+ % r) (c/steps n))
+          wiring (:wiring shape)]
+      ;TODO: multiple wires in different places!
+      [id (update shape :wiring
+                  #(for [channel-wiring %]
+                    (for [[from onto] channel-wiring]
+                      (if (or (= from 9) (= onto 9))
+                        [from onto]
+                        (let [x1 (+ x (* radius (Math/sin (nth edge-centres from))))
+                              y1 (+ y (* radius (Math/cos (nth edge-centres from))))
+                              x2 (+ x (* radius (Math/sin (nth edge-centres from)) 0.5))
+                              y2 (+ y (* radius (Math/cos (nth edge-centres from)) 0.5))
+                              x3 (+ x (* radius (Math/sin (nth edge-centres onto)) 0.5))
+                              y3 (+ y (* radius (Math/cos (nth edge-centres onto)) 0.5))
+                              x4 (+ x (* radius (Math/sin (nth edge-centres onto))))
+                              y4 (+ y (* radius (Math/cos (nth edge-centres onto))))]
+                          [from onto [[x1 y1] [x2 y2] [x3 y3] [x4 y4]]])))))])))
+
 (defn mk-level
   "Create a level from raw data???"                         ;; TODO: more docstring
-  [start-location data [start-index end-index] colours channels]
+  [start-location data wiring colours channels]
   (let [shapes0 (mk-shapes start-location data)
         shapes1 (round-shapes shapes0)
         [shapes2 width height] (centre shapes1)
-        start (repeat (count channels) start-index)
-        end (repeat (count channels) end-index)
-        shapes25 (blank-wires shapes2 (count channels))
-        shapes3 (add-endpoint-wiring shapes25 start-index (count channels) 0)
-        shapes4 (add-endpoint-wiring shapes3 end-index (count channels) 1)
-        shapes5 (add-neighbours shapes4)
+        start-index (first (for [[k v] wiring :when (= v :start)] k))
+        end-index (first (for [[k v] wiring :when (= v :end)] k))
+        n-channels (count channels)
+        start (repeat n-channels start-index)
+        end (repeat n-channels end-index)
+        shapes25 (blank-wires shapes2 n-channels)
+        shapes5 (add-neighbours shapes25)
         shapes6 (reset-rotations shapes5)
         shapes7 (mapv add-path shapes6)
-        shapes8 (add-ids shapes7)]
-    {:shapes   shapes8
+        shapes8 (add-ids shapes7)
+        shapes9 (add-wires shapes8 wiring n-channels)
+        shapes10 (position-wires shapes9 )
+        ]
+    {:shapes   (into {} shapes10)
      :width    width
      :height   height
      :channels channels
      :colours  colours
      :start    start
      :end      end}))
-
-(defn wire [level shape-id wiring]
-  (assoc-in level [:shapes shape-id :wiring] wiring))
 
 (def blue-on-orange [[250 175 0] [0 0 250] [0 150 225]])
 (def orange-yellow-red-channels [[250 175 0] [200 250 0] [250 100 0]])
@@ -180,11 +223,12 @@
                      4 [0 []
                         4 [0 []
                            4 []]]]]]]]
-        [0 6]
+        {0 :start
+         1 [[[0 2]]]
+         2 [[[0 2]]]
+         3 [[[1 3]]]
+         4 [[[0 2]]]
+         5 [[[0 1] [1 2]]]
+         6 :end}
         blue-on-orange
-        (butlast (butlast orange-yellow-red-channels)))
-      (wire 1 [[[0 2]]])
-      (wire 2 [[[0 2]]])
-      (wire 3 [[[1 3]]])
-      (wire 4 [[[0 2]]])
-      (wire 5 [[[0 2]]])))
+        (butlast (butlast orange-yellow-red-channels)))))

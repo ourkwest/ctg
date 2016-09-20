@@ -21,29 +21,54 @@
 (defn rad->deg [radians]
   (* (/ radians c/TAU) 360))
 
+(defn wire-path [[[x1 y1] [x2 y2] [x3 y3] [x4 y4]]]
+  (str "M" x1 " " y1 " C " x2 " " y2 "," x3 " " y3 "," x4 " " y4 ","))
+
 (defn hello-world []
-  (let [state @app-state]
+  (let [state @app-state
+        channels (:channels state)]
     [:div [:h1 (-> state :title)]
      [:svg {:style    {:width            "100%"
                        :height           "50%"
                        :background-color (color/rgba (-> state :colours first))}
             :view-box (string/join " " [0 0 (:width state) (:height state)])}
       [:g
-       (for [[id {:keys [n path location rotation]}] (-> state :shapes)]
+       (for [[id {:keys [n path location rotation wiring]}] (-> state :shapes)]
+
          (let [element-id (str "shape-" id)
                [x y r] location
                degrees (rad->deg (+ r
                               (* (:position rotation) (c/alphas n))
-                              (- (* (:ease rotation) (c/alphas n)))))]
-           [:polygon {:id        element-id
-                      :key       element-id
-                      :on-click  #(click id)
-                      :points    (points-str path)
-                      :style     {:fill   :lime
-                                  :stroke :purple}
-                      :transform (str "rotate(" degrees
-                                      "," x
-                                      "," y ")")}]))]]]))
+                              (- (* (:ease rotation) (c/alphas n)))))
+               ;degrees (rad->deg (+ r (* (:position rotation) (c/alphas n))))
+               ]
+
+           [:g {:key (str "g-" id)
+                :transform (str "rotate(" degrees
+                                "," x
+                                "," y ")")}
+
+            [:polygon {:id        element-id
+                       :key       (str "s-" id)
+                       :on-click  #(click id)
+                       :points    (points-str path)
+                       :style     {:fill   :lime
+                                   :stroke :purple}}]
+
+            (for [[channel-index channel-wiring] (map-indexed vector wiring)]
+              (for [[wire-index [_ _ points]] (map-indexed vector channel-wiring)]
+                [:path {:key (str "p-" id "-" channel-index "-" wire-index)
+                        :d   (wire-path points)
+                        :stroke :black
+                        :stroke-width 1
+                        :fill :none}
+                      ]
+
+                ))
+
+            ]
+
+           ))]]]))
 
 (reagent/render-component [hello-world]
                           (. js/document (getElementById "app")))
