@@ -26,11 +26,12 @@
 
 (defn hello-world []
   (let [state @app-state
-        channels (:channels state)]
-    [:div [:h1 (-> state :title)]
+        channels (:channels state)
+        [level-bg shape-stroke shape-fill] (:colours state)]
+    [:div {:class "big"
+           :style {:background-color (color/rgba level-bg)}}
      [:svg {:style    {:width            "100%"
-                       :height           "50%"
-                       :background-color (color/rgba (-> state :colours first))}
+                       :height           "100%"}
             :view-box (string/join " " [0 0 (:width state) (:height state)])}
       [:g
        (for [[id {:keys [n path location rotation wiring]}] (-> state :shapes)]
@@ -44,28 +45,33 @@
                ]
 
            [:g {:key (str "g-" id)
+                :on-click  #(click id)
                 :transform (str "rotate(" degrees
                                 "," x
                                 "," y ")")}
 
             [:polygon {:id        element-id
-                       :key       (str "s-" id)
-                       :on-click  #(click id)
+                       :key       (str "sf-" id)
                        :points    (points-str path)
-                       :style     {:fill   :lime
-                                   :stroke :purple}}]
+                       :style     {:fill   (color/rgba shape-fill)
+                                   :stroke :none}}]
 
             (for [[channel-index channel-wiring] (map-indexed vector wiring)]
               (for [[wire-index [_ _ points]] (map-indexed vector channel-wiring)]
                 [:path {:key (str "p-" id "-" channel-index "-" wire-index)
                         :d   (wire-path points)
-                        :stroke :black
+                        :stroke (color/rgba level-bg)
                         :stroke-width 1
                         :fill :none}
                       ]
 
                 ))
 
+            [:polygon {:id        element-id
+                       :key       (str "ss-" id)
+                       :points    (points-str path)
+                       :style     {:fill   :none
+                                   :stroke (color/rgba shape-stroke)}}]
             ]
 
            ))]]]))

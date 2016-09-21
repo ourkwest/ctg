@@ -231,4 +231,4 @@
          5 [[[0 1] [1 2]]]
          6 :end}
         blue-on-orange
-        (butlast (butlast orange-yellow-red-channels)))))
+        (take 1 orange-yellow-red-channels))))
