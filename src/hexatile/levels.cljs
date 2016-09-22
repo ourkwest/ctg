@@ -170,19 +170,19 @@
           wiring (:wiring shape)]
       ;TODO: multiple wires in different places!
       [id (update shape :wiring
-                  #(for [channel-wiring %]
-                    (for [[from onto] channel-wiring]
-                      (if (or (= from 9) (= onto 9))
-                        [from onto]
-                        (let [x1 (+ x (* radius (Math/sin (nth edge-centres from))))
-                              y1 (+ y (* radius (Math/cos (nth edge-centres from))))
-                              x2 (+ x (* radius (Math/sin (nth edge-centres from)) 0.5))
-                              y2 (+ y (* radius (Math/cos (nth edge-centres from)) 0.5))
-                              x3 (+ x (* radius (Math/sin (nth edge-centres onto)) 0.5))
-                              y3 (+ y (* radius (Math/cos (nth edge-centres onto)) 0.5))
-                              x4 (+ x (* radius (Math/sin (nth edge-centres onto))))
-                              y4 (+ y (* radius (Math/cos (nth edge-centres onto))))]
-                          [from onto [[x1 y1] [x2 y2] [x3 y3] [x4 y4]]])))))])))
+                  #(vec (for [channel-wiring %]
+                          (vec (for [[from onto] channel-wiring]
+                                 (if (or (= from 9) (= onto 9))
+                                   [from onto]
+                                   (let [x1 (+ x (* radius (Math/sin (nth edge-centres from))))
+                                         y1 (+ y (* radius (Math/cos (nth edge-centres from))))
+                                         x2 (+ x (* radius (Math/sin (nth edge-centres from)) 0.5))
+                                         y2 (+ y (* radius (Math/cos (nth edge-centres from)) 0.5))
+                                         x3 (+ x (* radius (Math/sin (nth edge-centres onto)) 0.5))
+                                         y3 (+ y (* radius (Math/cos (nth edge-centres onto)) 0.5))
+                                         x4 (+ x (* radius (Math/sin (nth edge-centres onto))))
+                                         y4 (+ y (* radius (Math/cos (nth edge-centres onto))))]
+                                     [from onto [[x1 y1] [x2 y2] [x3 y3] [x4 y4]]])))))))])))
 
 (defn mk-level
   "Create a level from raw data???"                         ;; TODO: more docstring
@@ -193,8 +193,8 @@
         start-index (first (for [[k v] wiring :when (= v :start)] k))
         end-index (first (for [[k v] wiring :when (= v :end)] k))
         n-channels (count channels)
-        start (repeat n-channels start-index)
-        end (repeat n-channels end-index)
+        start (vec (repeat n-channels start-index))
+        end (vec (repeat n-channels end-index))
         shapes25 (blank-wires shapes2 n-channels)
         shapes5 (add-neighbours shapes25)
         shapes6 (reset-rotations shapes5)
@@ -231,4 +231,4 @@
          5 [[[0 1] [1 2]]]
          6 :end}
         blue-on-orange
-        (take 1 orange-yellow-red-channels))))
+        (vec (take 1 orange-yellow-red-channels)))))

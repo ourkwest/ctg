@@ -94,8 +94,72 @@
   (into {} (for [[id shape] shapes]
              [id (update shape :rotation rotate-each)])))
 
+(defn index-of
+  "return the index of the supplied item, or nil"
+  [coll item]
+  (let [len (count coll)]
+    (loop [i 0]
+      (cond
+        (<= len i)         nil,
+        (= item (get coll i)) i,
+        :else              (recur (inc i ))))))
+
+(defn do-flow [done cursors shapes]
+  ; pick a cursor
+  ; if it is already in done:
+  ;   start again
+  ; else:
+  ;   generate next generation of cursors
+  ;   remove this cursor from cursors
+  ;   add this cursor to done
+  ;   start again
+  (let [[channel-index shape-index wire-index direction-index :as this-one] (first cursors)
+        fewer-cursors (disj cursors this-one)]
+    (cond
+      (nil? this-one) done
+      (done this-one) (do-flow done fewer-cursors shapes)
+      :else
+      (let [more-done (conj done this-one)
+            exit-side (get-in shapes [shape-index :wiring channel-index wire-index direction-index])
+            rotated-exit-side (mod (+ exit-side (get-in shapes [shape-index :rotation :position]))
+                                   (get-in shapes [shape-index :n]))
+            neighbour-index (get-in shapes [shape-index :neighbours rotated-exit-side])]
+        (if-not neighbour-index
+          (do-flow more-done fewer-cursors shapes)
+          (if-let [;; find this shape's index in the (rotated) neighbour's neighbours
+                   enter-side (index-of (get-in shapes [neighbour-index :neighbours]) shape-index)]
+            ;; un-rotate the index
+            (let [rotated-enter-side (mod (- enter-side (get-in shapes [neighbour-index :rotation :position]))
+                                          (get-in shapes [neighbour-index :n]))
+                  channel-wiring (get-in shapes [neighbour-index :wiring channel-index])
+
+                  ;; find all neighbour's wires that run from that index
+                  more-cursors (into fewer-cursors (remove nil?
+                                                           (for [wire-index (range (count channel-wiring))]
+                                                             (cond
+                                                               (= rotated-enter-side (get-in channel-wiring [wire-index 0]))
+                                                               [channel-index neighbour-index wire-index 0]
+                                                               (= rotated-enter-side (get-in channel-wiring [wire-index 1]))
+                                                               [channel-index neighbour-index wire-index 1]))))]
+              (do-flow more-done more-cursors shapes))
+            (do-flow more-done fewer-cursors shapes)))))))
+
+(defn reflow [{:keys [start end shapes] :as state}]
+
+  ; cursor: [channel-index shape-index wire-index direction-index]
+
+  (let [cursors (set (for [channel-index (range (count (:channels state)))
+                           wire-index (range (count (get-in state [:shapes (get start channel-index) :wiring channel-index])))]
+                       [channel-index (get start channel-index) wire-index 1]))
+        done #{}]
+    (-> state
+        (assoc :debug [cursors])
+        (assoc :flow (do-flow done cursors shapes)))))
+
 (defn tick [app-state]
-  (update app-state :shapes rotate-all))
+  (-> app-state
+      (update :shapes rotate-all)
+      reflow))
 
 (defn init []
   (js/setInterval #(swap! app-state tick) 10))
