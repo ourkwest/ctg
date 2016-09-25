@@ -28,7 +28,11 @@
   (let [state @app-state
         channels (:channels state)
         flow (:flow state)
+        now (:time state)
         [level-bg shape-stroke shape-fill] (:colours state)]
+
+    ;(println now)
+
     [:div {:class "big"
            :style {:background-color (color/rgba level-bg)}}
      [:svg {:style    {:width            "100%"
@@ -65,12 +69,38 @@
                       backwards (get flow [channel-index id wire-index 0])
                       either (or forwards backwards)
                       stroke-width (if either 4 1)]
-                  [:path {:key          (str "p-" id "-" channel-index "-" wire-index)
-                          :d            (wire-path points)
-                          :stroke       (color/rgba level-bg)
-                          :stroke-width stroke-width
-                          :fill         :none}
-                   ])
+
+                  [:g {:key (str "pg-" id "-" channel-index "-" wire-index)}
+                   [:path {:key          (str "p-" id "-" channel-index "-" wire-index)
+                           :d            (wire-path points)
+                           :stroke       (color/rgba level-bg)
+                           :stroke-width stroke-width
+                           :fill         :none}
+                    ]
+
+                   (when forwards
+                     [:path {:key              (str "pf-" id "-" channel-index "-" wire-index)
+                             :d                (wire-path points)
+                             :style            {:stroke-dashoffset (- (mod (/ now 20) 1000))
+                                                :stroke-linecap    "round"}
+                             :stroke           (color/rgba level-bg)
+                             :stroke-dasharray (str "1, 15")
+                             :stroke-width     7
+                             :fill             :none}
+                      ])
+                   (when forwards
+                     [:path {:key              (str "pf1-" id "-" channel-index "-" wire-index)
+                             :d                (wire-path points)
+                             :style            {:stroke-dashoffset (- (mod (/ now 20) 1000))
+                                                :stroke-linecap    "round"}
+                             :stroke           "rgba(255,255,255,0.5)"
+                             :stroke-dasharray (str "1, 15")
+                             :stroke-width     3
+                             :fill             :none}
+                      ])
+                   ]
+
+                  )
 
                 ))
 
@@ -80,18 +110,19 @@
                        :style     {:fill   :none
                                    :stroke (color/rgba shape-stroke)}}]
 
-            [:line {:x1    (first (first path))
-                    :y1    (second (first path))
-                    :x2    (inc (first (first path)))
-                    :y2    (inc (second (first path)))
-                    :style {:stroke       :red
-                            :stroke-width 3}}]
+            (comment "debug"
+                     [:line {:x1    (first (first path))
+                             :y1    (second (first path))
+                             :x2    (inc (first (first path)))
+                             :y2    (inc (second (first path)))
+                             :style {:stroke       :red
+                                     :stroke-width 3}}]
 
-            [:line {:x1 x
-                        :y1 y
-                    :x2 x
-                        :y2 (- y 20)
-                    :style {:stroke :black}}]
+                     [:line {:x1    x
+                             :y1    y
+                             :x2    x
+                             :y2    (- y 20)
+                             :style {:stroke :black}}])
             ]
 
            ))]]]))
@@ -179,6 +210,7 @@
   ;(println "tick")
   (if (:running app-state)
     (-> app-state
+        (assoc :time (.getTime (js/Date.)))
         (update :shapes rotate-all)
         reflow
         )
