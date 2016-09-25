@@ -27,6 +27,7 @@
 (defn hello-world []
   (let [state @app-state
         channels (:channels state)
+        flow (:flow state)
         [level-bg shape-stroke shape-fill] (:colours state)]
     [:div {:class "big"
            :style {:background-color (color/rgba level-bg)}}
@@ -38,9 +39,9 @@
 
          (let [element-id (str "shape-" id)
                [x y r] location
-               degrees (rad->deg (+ r
-                              (* (:position rotation) (c/alphas n))
-                              (- (* (:ease rotation) (c/alphas n)))))
+               degrees (- (rad->deg (+ r
+                                       (* (:position rotation) (c/alphas n))
+                                       (- (* (:ease rotation) (c/alphas n))))))
                ;degrees (rad->deg (+ r (* (:position rotation) (c/alphas n))))
                ]
 
@@ -58,12 +59,18 @@
 
             (for [[channel-index channel-wiring] (map-indexed vector wiring)]
               (for [[wire-index [_ _ points]] (map-indexed vector channel-wiring)]
-                [:path {:key (str "p-" id "-" channel-index "-" wire-index)
-                        :d   (wire-path points)
-                        :stroke (color/rgba level-bg)
-                        :stroke-width 1
-                        :fill :none}
-                      ]
+
+
+                (let [forwards (get flow [channel-index id wire-index 1])
+                      backwards (get flow [channel-index id wire-index 0])
+                      either (or forwards backwards)
+                      stroke-width (if either 4 1)]
+                  [:path {:key          (str "p-" id "-" channel-index "-" wire-index)
+                          :d            (wire-path points)
+                          :stroke       (color/rgba level-bg)
+                          :stroke-width stroke-width
+                          :fill         :none}
+                   ])
 
                 ))
 
@@ -72,6 +79,19 @@
                        :points    (points-str path)
                        :style     {:fill   :none
                                    :stroke (color/rgba shape-stroke)}}]
+
+            [:line {:x1    (first (first path))
+                    :y1    (second (first path))
+                    :x2    (inc (first (first path)))
+                    :y2    (inc (second (first path)))
+                    :style {:stroke       :red
+                            :stroke-width 3}}]
+
+            [:line {:x1 x
+                        :y1 y
+                    :x2 x
+                        :y2 (- y 20)
+                    :style {:stroke :black}}]
             ]
 
            ))]]]))
@@ -132,15 +152,14 @@
             (let [rotated-enter-side (mod (- enter-side (get-in shapes [neighbour-index :rotation :position]))
                                           (get-in shapes [neighbour-index :n]))
                   channel-wiring (get-in shapes [neighbour-index :wiring channel-index])
-
                   ;; find all neighbour's wires that run from that index
                   more-cursors (into fewer-cursors (remove nil?
                                                            (for [wire-index (range (count channel-wiring))]
                                                              (cond
                                                                (= rotated-enter-side (get-in channel-wiring [wire-index 0]))
-                                                               [channel-index neighbour-index wire-index 0]
+                                                               [channel-index neighbour-index wire-index 1]
                                                                (= rotated-enter-side (get-in channel-wiring [wire-index 1]))
-                                                               [channel-index neighbour-index wire-index 1]))))]
+                                                               [channel-index neighbour-index wire-index 0]))))]
               (do-flow more-done more-cursors shapes))
             (do-flow more-done fewer-cursors shapes)))))))
 
@@ -157,9 +176,13 @@
         (assoc :flow (do-flow done cursors shapes)))))
 
 (defn tick [app-state]
-  (-> app-state
-      (update :shapes rotate-all)
-      reflow))
+  ;(println "tick")
+  (if (:running app-state)
+    (-> app-state
+        (update :shapes rotate-all)
+        reflow
+        )
+    app-state))
 
 (defn init []
   (js/setInterval #(swap! app-state tick) 10))

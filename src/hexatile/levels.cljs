@@ -127,7 +127,10 @@
 
 (defn poly-path [[x y r] sides]
   (let [radius (c/radii sides)
-        steps (map #(+ % r (/ (c/alphas sides) 2)) (c/steps sides))]
+        steps (map #(+ % r (/ (c/alphas sides) 2)) (c/steps sides))
+        steps (map #(+ % (/ (c/alphas sides) 2)) (c/steps sides))
+        ;steps (c/steps sides)
+        ]
     (vec
       (for [angle steps]
         [(round-to 2 (+ x (* radius (Math/sin angle))))
@@ -167,6 +170,7 @@
     (let [[x y r] location
           radius (c/inner-radii n)
           edge-centres (map #(+ % r) (c/steps n))
+          edge-centres (c/steps n)
           wiring (:wiring shape)]
       ;TODO: multiple wires in different places!
       [id (update shape :wiring
@@ -209,7 +213,8 @@
      :channels channels
      :colours  colours
      :start    start
-     :end      end}))
+     :end      end
+     :running true}))
 
 (def blue-on-orange [[250 175 0] [0 0 250] [0 150 225]])
 (def orange-yellow-red-channels [[250 175 0] [200 250 0] [250 100 0]])
@@ -221,14 +226,20 @@
                4 [0 []
                   4 [0 []
                      4 [0 []
-                        4 [0 []
-                           4 []]]]]]]]
+                        6 [0 []
+                           4 [0 []
+                              4 []]
+                           3 []]]
+                     3 []]]]]]
         {0 :start
          1 [[[0 2]]]
          2 [[[0 2]]]
          3 [[[1 3]]]
          4 [[[0 2]]]
-         5 [[[0 1] [1 2]]]
-         6 :end}
+         5 [[[0 1] [1 2] [0 2] [0 3] [0 4]]]
+         6 [[[0 1] [1 2] [0 2]]]
+         8 [[[0 1] [1 2] [0 2]]]
+         9 [[[0 1] [1 2] [0 2]]]
+         7 :end}
         blue-on-orange
         (vec (take 1 orange-yellow-red-channels)))))
