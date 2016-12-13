@@ -12,8 +12,8 @@
 (defonce app-state (atom levels/level-one))
 
 (defn click [id]
-  (swap! app-state update-in [:shapes id :rotation :position] inc)
-  (swap! app-state update-in [:shapes id :rotation :ease] inc))
+  (swap! app-state update-in [:shapes id :rotation :position] dec)
+  (swap! app-state update-in [:shapes id :rotation :ease] dec))
 
 (defn points-str [points]
   (string/join " " (map #(string/join "," %) points)))
@@ -24,11 +24,68 @@
 (defn wire-path [[[x1 y1] [x2 y2] [x3 y3] [x4 y4]]]
   (str "M" x1 " " y1 " C " x2 " " y2 "," x3 " " y3 "," x4 " " y4 ","))
 
+(def on-width 3)
+(def off-width 1)
+(def blob-size 2)
+(def blob-spacing 22)
+
+
+(defn render-wiring [id wiring flow dash-offset channels]
+  [:g {:key (str "pg-" id)}
+   (let [paths
+         (for [[channel-index channel-wiring] (map-indexed vector wiring)
+               [wire-index [_ _ points]] (map-indexed vector channel-wiring)]
+           (let [forwards (get flow [channel-index id wire-index 1])
+                 backwards (get flow [channel-index id wire-index 0])
+                 either (or forwards backwards)]
+             [(if (not either)
+                [:path {:key          (str "pl-" id "-" channel-index "-" wire-index)
+                        :d            (wire-path points)
+                        :stroke       (color/rgba [0 0 0 0.5])
+                        :stroke-width (inc off-width)
+                        :fill         :none}]
+                [:path {:key          (str "pl-" id "-" channel-index "-" wire-index)
+                        :d            (wire-path points)
+                        :stroke       (color/rgba [255 255 255 0.5])
+                        :stroke-width (inc on-width)
+                        :fill         :none}])
+              (when (not either)
+                [:path {:key          (str "p-" id "-" channel-index "-" wire-index)
+                        :d            (wire-path points)
+                        :stroke       (color/rgba (channels channel-index))
+                        :stroke-width off-width
+                        :fill         :none}])
+              (when either
+                [:path {:key          (str "p-" id "-" channel-index "-" wire-index)
+                        :d            (wire-path points)
+                        :stroke       (color/rgba (channels channel-index))
+                        :stroke-width on-width
+                        :fill         :none}])
+              (when forwards
+                [:path {:key              (str "pf-" id "-" channel-index "-" wire-index)
+                        :d                (wire-path points)
+                        :style            {:stroke-dashoffset (- dash-offset)}
+                        :stroke           :black
+                        :stroke-dasharray (str blob-size ", " blob-spacing)
+                        :stroke-width     blob-size
+                        :fill             :none}])
+              (when backwards
+                [:path {:key              (str "pb-" id "-" channel-index "-" wire-index)
+                        :d                (wire-path points)
+                        :style            {:stroke-dashoffset dash-offset}
+                        :stroke           :black
+                        :stroke-dasharray (str blob-size ", " blob-spacing)
+                        :stroke-width     blob-size
+                        :fill             :none}])]))]
+     (remove nil? (apply concat (apply mapv vector paths))))])
+
+
 (defn hello-world []
   (let [state @app-state
         channels (:channels state)
         flow (:flow state)
         now (:time state)
+        dash-offset (mod (/ now 50) (+ blob-size blob-spacing))
         [level-bg shape-stroke shape-fill] (:colours state)]
 
     ;(println now)
@@ -55,54 +112,14 @@
                                 "," x
                                 "," y ")")}
 
-            [:polygon {:id        element-id
-                       :key       (str "sf-" id)
-                       :points    (points-str path)
-                       :style     {:fill   (color/rgba shape-fill)
-                                   :stroke :none}}]
+            [:g {:class "hoverable"}
+             [:polygon {:id     element-id
+                        :key    (str "sf-" id)
+                        :points (points-str path)
+                        :style  {:fill   (color/rgba shape-fill)
+                                 :stroke :none}}]
 
-            (for [[channel-index channel-wiring] (map-indexed vector wiring)]
-              (for [[wire-index [_ _ points]] (map-indexed vector channel-wiring)]
-
-
-                (let [forwards (get flow [channel-index id wire-index 1])
-                      backwards (get flow [channel-index id wire-index 0])
-                      either (or forwards backwards)
-                      stroke-width (if either 4 1)]
-
-                  [:g {:key (str "pg-" id "-" channel-index "-" wire-index)}
-                   [:path {:key          (str "p-" id "-" channel-index "-" wire-index)
-                           :d            (wire-path points)
-                           :stroke       (color/rgba level-bg)
-                           :stroke-width stroke-width
-                           :fill         :none}
-                    ]
-
-                   (when forwards
-                     [:path {:key              (str "pf-" id "-" channel-index "-" wire-index)
-                             :d                (wire-path points)
-                             :style            {:stroke-dashoffset (- (mod (/ now 20) 1000))
-                                                :stroke-linecap    "round"}
-                             :stroke           (color/rgba level-bg)
-                             :stroke-dasharray (str "1, 15")
-                             :stroke-width     7
-                             :fill             :none}
-                      ])
-                   (when forwards
-                     [:path {:key              (str "pf1-" id "-" channel-index "-" wire-index)
-                             :d                (wire-path points)
-                             :style            {:stroke-dashoffset (- (mod (/ now 20) 1000))
-                                                :stroke-linecap    "round"}
-                             :stroke           "rgba(255,255,255,0.5)"
-                             :stroke-dasharray (str "1, 15")
-                             :stroke-width     3
-                             :fill             :none}
-                      ])
-                   ]
-
-                  )
-
-                ))
+             (render-wiring id wiring flow dash-offset channels)]
 
             [:polygon {:id        element-id
                        :key       (str "ss-" id)
@@ -132,6 +149,7 @@
 
 (defn on-js-reload []
 
+  (reset! app-state levels/level-one)
   ;; optionally touch your app-state to force rerendering depending on
   ;; your application
   ;; (swap! app-state update-in [:__figwheel_counter] inc)
@@ -139,7 +157,7 @@
 
 (defn rotate-each [{:keys [position ease]}]
   {:position (mod position 24)
-   :ease     (max 0 (- ease 0.05))})
+   :ease     (min 0 (+ ease 0.05))})
 
 (defn rotate-all [shapes]
   (into {} (for [[id shape] shapes]

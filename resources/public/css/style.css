@@ -15,3 +15,12 @@ html,body{
     width: 100vw;
     height: 100vh;
 }
+
+
+.hoverable {
+     opacity: 1;
+}
+
+.hoverable:hover {
+     opacity: 0.5;
+}

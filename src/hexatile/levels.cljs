@@ -165,25 +165,36 @@
                          :else shape-wiring-input)]
       [id (assoc shape :wiring shape-wiring)])))
 
-(defn position-wires [shapes]
+(defn position-wires [shapes n-channels]
   (for [[id {:keys [n location] :as shape}] shapes]
     (let [[x y r] location
           radius (c/inner-radii n)
-          edge-centres (map #(+ % r) (c/steps n))
           edge-centres (c/steps n)
-          wiring (:wiring shape)]
+          wiring (:wiring shape)
+          offsets ({3 [-0.2 0 0.2]
+                    2 [-0.1 0.1]
+                    1 [0]} n-channels)]
       ;TODO: multiple wires in different places!
       [id (update shape :wiring
-                  #(vec (for [channel-wiring %]
+                  #(vec (for [[channel-index channel-wiring] (map-indexed vector %)]
                           (vec (for [[from onto] channel-wiring]
                                  (if (or (= from 9) (= onto 9))
                                    [from onto]
-                                   (let [x1 (+ x (* radius (Math/sin (nth edge-centres from))))
+                                   (let [os (offsets channel-index)
+                                         x1 (+ x (* radius (Math/sin (nth edge-centres from))))
                                          y1 (+ y (* radius (Math/cos (nth edge-centres from))))
-                                         x2 (+ x (* radius (Math/sin (nth edge-centres from)) 0.5))
-                                         y2 (+ y (* radius (Math/cos (nth edge-centres from)) 0.5))
-                                         x3 (+ x (* radius (Math/sin (nth edge-centres onto)) 0.5))
-                                         y3 (+ y (* radius (Math/cos (nth edge-centres onto)) 0.5))
+                                         x2 (+ x
+                                               (* radius (Math/sin (nth edge-centres from)) 0.25)
+                                               (- (* radius (Math/cos (nth edge-centres from)) os)))
+                                         y2 (+ y
+                                               (* radius (Math/cos (nth edge-centres from)) 0.25)
+                                               (* radius (Math/sin (nth edge-centres from)) os))
+                                         x3 (+ x
+                                               (* radius (Math/sin (nth edge-centres onto)) 0.25)
+                                               (- (* radius (Math/cos (nth edge-centres onto)) os)))
+                                         y3 (+ y
+                                               (* radius (Math/cos (nth edge-centres onto)) 0.25)
+                                               (* radius (Math/sin (nth edge-centres onto)) os))
                                          x4 (+ x (* radius (Math/sin (nth edge-centres onto))))
                                          y4 (+ y (* radius (Math/cos (nth edge-centres onto))))]
                                      [from onto [[x1 y1] [x2 y2] [x3 y3] [x4 y4]]])))))))])))
@@ -205,7 +216,7 @@
         shapes7 (mapv add-path shapes6)
         shapes8 (add-ids shapes7)
         shapes9 (add-wires shapes8 wiring n-channels)
-        shapes10 (position-wires shapes9 )
+        shapes10 (position-wires shapes9 n-channels)
         ]
     {:shapes   (into {} shapes10)
      :width    width
@@ -216,7 +227,7 @@
      :end      end
      :running true}))
 
-(def blue-on-orange [[250 175 0] [0 0 250] [0 150 225]])
+(def blue-on-orange [[250 175 0] [0 0 250] [0 150 225] [50 250 250]])
 (def orange-yellow-red-channels [[250 175 0] [200 250 0] [250 100 0]])
 
 (def level-one
@@ -243,4 +254,45 @@
          9 [[[0 1] [1 2] [0 2]]]
          7 :end}
         blue-on-orange
-        (vec (take 1 orange-yellow-red-channels)))))
+        (vec (take 3 orange-yellow-red-channels)))))
+
+(def level-two
+  (-> (mk-level
+        [0 0 (* 2 c/TAU_6TH)]
+        [0 []
+         4 [0 []
+            4 [4 []
+               4 [4 [0 []]
+                  6 [3 [0 []
+                        4 [6 [0 []
+                              3 []
+                              0 []
+                              0 []
+                              3 []]]]
+                     4 [0 []
+                        4 [4 []
+                           4 [0 []
+                              0 []
+                              4 [4 []]]
+                           4 []]]
+                     3 [4 []
+                        0 []]
+                     0 []
+                     3 []]
+                  4 []]
+               4 []]
+            4 [0 []
+               0 []
+               4 []]]]
+        {0 :start
+         ;1 [[[0 2]] [[1 3] [0 3]] [[1 2]]]
+         ;2 [[[0 2]]]
+         ;3 [[[1 3]]]
+         ;4 [[[0 2]]]
+         ;5 [[[0 1] [1 2] [0 2] [0 3] [0 4]]]
+         ;6 [[[0 1] [1 2] [0 2]]]
+         ;8 [[[0 1] [1 2] [0 2]]]
+         ;9 [[[0 1] [1 2] [0 2]]]
+         7 :end}
+        blue-on-orange
+        (vec (take 3 orange-yellow-red-channels)))))
