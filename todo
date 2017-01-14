@@ -1,0 +1,33 @@
+
+
+
+
+Layer rotating tiles in front of all other tiles.
+
+Level editor? (handmade levels are kind of tedious right now)
+
+Level transitions. Zoom, pan, rotate ?
+
+No flow while tile is spinning? Currently flow begins for new position as soon as tile starts turning.
+
+
+
+Level transitions:
+
+    add 'empty' shapes to levels?
+
+    lock level on completion
+    fade shapes to empty on completion
+
+    lock level
+    fade shapes away and only render outlines
+    cross-fade:
+        position,
+        rotation,
+        scale,
+        fg + bg colours,
+        which outlines are being drawn
+    fade new shapes in from outlines
+
+
+

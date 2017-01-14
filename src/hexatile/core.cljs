@@ -187,6 +187,7 @@
     (cond
       (nil? this-one) done
       (done this-one) (do-flow done fewer-cursors shapes)
+      (not= 0 (get-in shapes [shape-index :rotation :ease] 0)) (do-flow done fewer-cursors shapes)
       :else
       (let [more-done (conj done this-one)
             exit-side (get-in shapes [shape-index :wiring channel-index wire-index direction-index])
